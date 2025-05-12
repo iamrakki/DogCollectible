@@ -240,22 +240,19 @@ contract DogCollectible is
         require(ownerOf(tokenId) != address(0), "Token does not exist");
         uint256 minutesPassed = (block.timestamp - lastHpUpdate[tokenId]) / 1 minutes;
         if (minutesPassed > 0) {
-            uint256 hpRate;
-            if (levelOf[tokenId] == Level.Common) {
-                hpRate = COMMON_HP_RATE;
-            } else if (levelOf[tokenId] == Level.Standard) {
-                hpRate = STANDARD_HP_RATE;
-            } else if (levelOf[tokenId] == Level.Rare) {
-                hpRate = RARE_HP_RATE;
-            } else if (levelOf[tokenId] == Level.Epic) {
-                hpRate = EPIC_HP_RATE;
-            } else if (levelOf[tokenId] == Level.SuperRare) {
-                hpRate = SUPER_RARE_HP_RATE;
-            }
-
+            uint256 hpRate = _getHpRate(levelOf[tokenId]);
             currentHp[tokenId] += (minutesPassed * hpRate) / 100;
             lastHpUpdate[tokenId] = block.timestamp;
         }
+    }
+
+    function _getHpRate(Level level) internal pure returns (uint256) {
+        if (level == Level.Common) return COMMON_HP_RATE;
+        if (level == Level.Standard) return STANDARD_HP_RATE;
+        if (level == Level.Rare) return RARE_HP_RATE;
+        if (level == Level.Epic) return EPIC_HP_RATE;
+        if (level == Level.SuperRare) return SUPER_RARE_HP_RATE;
+        revert("Invalid level");
     }
 
     function getHP(uint256 tokenId) public view returns (uint256) {
@@ -263,18 +260,7 @@ contract DogCollectible is
         uint256 minutesPassed = (block.timestamp - lastHpUpdate[tokenId]) / 1 minutes;
         if (minutesPassed == 0) return currentHp[tokenId];
 
-        uint256 hpRate;
-        if (levelOf[tokenId] == Level.Common) {
-            hpRate = COMMON_HP_RATE;
-        } else if (levelOf[tokenId] == Level.Standard) {
-            hpRate = STANDARD_HP_RATE;
-        } else if (levelOf[tokenId] == Level.Rare) {
-            hpRate = RARE_HP_RATE;
-        } else if (levelOf[tokenId] == Level.Epic) {
-            hpRate = EPIC_HP_RATE;
-        } else if (levelOf[tokenId] == Level.SuperRare) {
-            hpRate = SUPER_RARE_HP_RATE;
-        }
+        uint256 hpRate = _getHpRate(levelOf[tokenId]);
 
         return currentHp[tokenId] + ((minutesPassed * hpRate) / 100);
     }
@@ -292,11 +278,6 @@ contract DogCollectible is
         address auth
     ) internal virtual override(ERC721, ERC721Enumerable) returns (address) {
         return super._update(to, tokenId, auth);
-    }
-
-    function _mint(address to, uint256 tokenId) internal virtual override {
-        super._mint(to, tokenId);
-        lastHpUpdate[tokenId] = block.timestamp;
     }
 
     function supportsInterface(
