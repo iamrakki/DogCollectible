@@ -5,29 +5,44 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 describe("DogCollectible", function () {
     let dogContract;
     let hpController;
+    let hpToken;
     let owner;
     let user;
     
     beforeEach(async function () {
         [owner, user] = await ethers.getSigners();
+
+        // Deploy mock HP token
+        const MockHPToken = await ethers.getContractFactory("MockHPToken");
+        hpToken = await MockHPToken.deploy();
+        await hpToken.waitForDeployment();
         
         const HPController = await ethers.getContractFactory("HPController");
-        hpController = await HPController.deploy();
+        hpController = await HPController.deploy(hpToken.target);
         await hpController.waitForDeployment();
+
+        // Grant MINTER_ROLE to the HPController
+        await hpController.grantRole(await hpController.MINTER_ROLE(), hpController.target);
         
         const DogCollectible = await ethers.getContractFactory("DogCollectible");
         dogContract = await DogCollectible.deploy(
             "DogCollectible",
             "DOG",
             "ipfs://baseuri/",
-            90, 80, 80, 90, 70 
+            90, 80, 80, 90, 70
         );
         await dogContract.waitForDeployment();
         await dogContract.setHPController(hpController.target);
         
-        // Grant HP to users for testing
-        await hpController.addHP(owner.address, 1000000);
-        await hpController.addHP(user.address, 1000000);
+        // Grant HP tokens to users for testing
+        await hpToken.transfer(owner.address, ethers.parseEther("1000000"));
+        await hpToken.transfer(user.address, ethers.parseEther("1000000"));
+
+        // Approve both HPController and DogCollectible to spend tokens
+        await hpToken.connect(owner).approve(hpController.target, ethers.parseEther("1000000"));
+        await hpToken.connect(user).approve(hpController.target, ethers.parseEther("1000000"));
+        await hpToken.connect(owner).approve(dogContract.target, ethers.parseEther("1000000"));
+        await hpToken.connect(user).approve(dogContract.target, ethers.parseEther("1000000"));
     });
 
     describe("C01 - Initial public mint", function () {
@@ -106,8 +121,8 @@ describe("DogCollectible", function () {
         });
     });
 
-    describe("C08 - Merge Standards to Rare", function() {
-        it("should merge three standards into rare", async function() {
+    describe("C08 - Merge Standards to Rare", function () {
+        it("should merge three standards into rare", async function () {
             await dogContract.connect(user).publicMint(6);
             await dogContract.connect(user).mergeCommons(0, 1);
             await dogContract.connect(user).mergeCommons(2, 3);
@@ -120,8 +135,8 @@ describe("DogCollectible", function () {
         });
     });
 
-    describe("C09 - HP Generation", function() {
-        it("should accumulate HP over time at correct rate", async function() {
+    describe("C09 - HP Generation", function () {
+        it("should accumulate HP over time at correct rate", async function () {
             await dogContract.connect(user).publicMint(1);
             const initialHP = await dogContract.getHP(0);
             const totalMint = await dogContract.initialMinted();
@@ -136,8 +151,8 @@ describe("DogCollectible", function () {
         });
     });
 
-    describe("C10 - HP Update State", function() {
-        it("should update stored HP state correctly", async function() {
+    describe("C10 - HP Update State", function () {
+        it("should update stored HP state correctly", async function () {
             await dogContract.connect(user).publicMint(1);
             await time.increase(60);
             await dogContract.updateHP(0);
@@ -160,6 +175,9 @@ describe("DogCollectible", function () {
             );
             await dogContract2.waitForDeployment();
             await dogContract2.setHPController(hpController.target);
+
+            await hpToken.connect(owner).approve(dogContract2.target, ethers.parseEther("1000000"));
+            await hpToken.connect(user).approve(dogContract2.target, ethers.parseEther("1000000"));
         });
 
         it("N01 - should revert when exceeding supply with partial mint", async function () {
@@ -212,7 +230,7 @@ describe("DogCollectible", function () {
             ).to.be.revertedWithCustomError(dogContract, "ERC721NonexistentToken");
         });
 
-        it("N08 - should revert when merging standards with insufficient tokens", async function() {
+        it("N08 - should revert when merging standards with insufficient tokens", async function () {
             await dogContract.connect(user).publicMint(4);
             await dogContract.connect(user).mergeCommons(0, 1);
             await dogContract.connect(user).mergeCommons(2, 3);
@@ -222,7 +240,7 @@ describe("DogCollectible", function () {
             ).to.be.revertedWith("Need 3");
         });
 
-        it("N09 - should revert HP update for burned token", async function() {
+        it("N09 - should revert HP update for burned token", async function () {
             await dogContract.connect(user).publicMint(2);
             await dogContract.connect(user).mergeCommons(0, 1);
             
@@ -231,14 +249,13 @@ describe("DogCollectible", function () {
             ).to.be.revertedWithCustomError(dogContract, "ERC721NonexistentToken");
         });
 
-        it("N10 - should revert when merging with insufficient HP", async function() {
+        it("N10 - should revert when merging with insufficient HP", async function () {
             await dogContract.connect(user).publicMint(2);
-            const userHP = await hpController.getUserHP(user.address);
-            await hpController.removeHP(user.address, userHP); 
-            
+            await hpToken.connect(user).approve(dogContract.target, 0);
+
             await expect(
                 dogContract.connect(user).mergeCommons(0, 1)
-            ).to.be.revertedWith("Insufficient HP");
+            ).to.be.revertedWithCustomError(hpToken, "ERC20InsufficientAllowance");
         });
     });
 });
