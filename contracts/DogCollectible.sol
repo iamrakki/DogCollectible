@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./HPController.sol";
 
 contract DogCollectible is
@@ -87,19 +88,26 @@ contract DogCollectible is
     }
 
     function setHPController(address _controller) external onlyRole(ADMIN_ROLE) {
+        require(_controller != address(0), "Invalid address");
         hpController = HPController(_controller);
     }
 
     function publicMint(uint256 quantity) external {
-
-
         require(
             initialMinted + quantity <= initialSupply,
             "Exceeds initial supply"
         );
 
-                uint256 hpCost = hpController.calculateHP(quantity);
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+        uint256 hpCost = hpController.calculateHP(quantity);
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
 
         for (uint256 i = 0; i < quantity; i++) {
             uint256 tid = _tokenIdCounter++;
@@ -109,14 +117,23 @@ contract DogCollectible is
         }
     }
 
-    function mintToAddress(address to ,uint256 quantity) external {
+    function mintToAddress(address to, uint256 quantity) external {
         require(
             initialMinted + quantity <= initialSupply,
             "Exceeds initial supply"
         );
+
         uint256 hpCost = hpController.calculateDiscountedHP(quantity);
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
-        
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
+
         for (uint256 i = 0; i < quantity; i++) {
             uint256 tid = _tokenIdCounter++;
             initialMinted++;
@@ -128,8 +145,18 @@ contract DogCollectible is
     function mintMonthly(uint256 quantity) external onlyRole(ADMIN_ROLE) {
         require(block.timestamp >= nextMintTimestamp, "Too early");
         require(quantity <= monthlyMintAmount, "Exceeds monthly limit");
-                uint256 hpCost = hpController.calculateHP(quantity);
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+
+        uint256 hpCost = hpController.calculateHP(quantity);
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
+
         for (uint256 i = 0; i < quantity; i++) {
             uint256 tid = _tokenIdCounter++;
             _mint(msg.sender, tid);
@@ -148,9 +175,17 @@ contract DogCollectible is
             levelOf[a] == Level.Common && levelOf[b] == Level.Common,
             "Not common"
         );
-        
-        uint256 hpCost = hpController.calculateHP(2); 
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+
+        uint256 hpCost = hpController.calculateHP(2);
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
 
         _burn(a);
         _burn(b);
@@ -165,9 +200,17 @@ contract DogCollectible is
             require(ownerOf(ids[i]) == msg.sender, "Not owner");
             require(levelOf[ids[i]] == Level.Standard, "Not standard");
         }
-        
-        uint256 hpCost = hpController.calculateHP(3); 
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+
+        uint256 hpCost = hpController.calculateHP(3);
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
 
         for (uint i; i < 3; i++) {
             _burn(ids[i]);
@@ -184,8 +227,16 @@ contract DogCollectible is
             require(levelOf[ids[i]] == Level.Rare, "Not rare");
         }
 
-        uint256 hpCost = hpController.calculateHP(5); 
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+        uint256 hpCost = hpController.calculateHP(5);
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
 
         for (uint i; i < 5; i++) {
             _burn(ids[i]);
@@ -203,7 +254,15 @@ contract DogCollectible is
         }
 
         uint256 hpCost = hpController.calculateHP(3);
-        require(hpController.deductHP(msg.sender, hpCost), "Insufficient HP");
+        IERC20 hpToken = IERC20(hpController.hpToken());
+        require(
+            hpToken.transferFrom(msg.sender, address(this), hpCost),
+            "HP transfer to DogCollectible failed"
+        );
+        require(
+            hpToken.transfer(address(hpController), hpCost),
+            "HP transfer to Controller failed"
+        );
 
         for (uint i; i < 3; i++) {
             _burn(ids[i]);
