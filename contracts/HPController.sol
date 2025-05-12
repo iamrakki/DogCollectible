@@ -53,4 +53,8 @@ function calculateDiscountedHP(uint256 quantity) public view returns (uint256) {
         require(userHP[user] >= amount, "Insufficient HP");
         userHP[user] -= amount;
     }
+
+    function getUserHP(address user) external view returns (uint256) {
+        return userHP[user];
+    }
 }
