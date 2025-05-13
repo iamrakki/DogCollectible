@@ -93,12 +93,13 @@ contract DogCollectible is
     }
 
     function publicMint(uint256 quantity) external {
-        require(
-            initialMinted + quantity <= initialSupply,
-            "Exceeds initial supply"
-        );
+            require(quantity > 0, "Quantity must be > 0");
+            require(
+                initialMinted + quantity <= initialSupply,
+                "Exceeds initial supply"
+            );
 
-        uint256 hpCost = hpController.calculateHP(quantity);
+        uint256 hpCost = hpController.calculateDiscountedHP(quantity);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
@@ -118,10 +119,11 @@ contract DogCollectible is
     }
 
     function mintToAddress(address to, uint256 quantity) external {
-        require(
-            initialMinted + quantity <= initialSupply,
-            "Exceeds initial supply"
-        );
+            require(quantity > 0, "Quantity must be > 0");
+            require(
+                initialMinted + quantity <= initialSupply,
+                "Exceeds initial supply"
+            );
 
         uint256 hpCost = hpController.calculateDiscountedHP(quantity);
         IERC20 hpToken = IERC20(hpController.hpToken());
@@ -141,12 +143,13 @@ contract DogCollectible is
             levelOf[tid] = Level.Common;
         }
     }
-
     function mintMonthly(uint256 quantity) external onlyRole(ADMIN_ROLE) {
-        require(block.timestamp >= nextMintTimestamp, "Too early");
+            require(quantity > 0, "Quantity must be > 0");
+            require(block.timestamp >= nextMintTimestamp, "Too early");
+            require(quantity <= monthlyMintAmount, "Exceeds monthly limit");
         require(quantity <= monthlyMintAmount, "Exceeds monthly limit");
 
-        uint256 hpCost = hpController.calculateHP(quantity);
+        uint256 hpCost = hpController.calculateDiscountedHP(quantity);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
@@ -176,7 +179,7 @@ contract DogCollectible is
             "Not common"
         );
 
-        uint256 hpCost = hpController.calculateHP(2);
+        uint256 hpCost = hpController.calculateDiscountedHP(2);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
@@ -201,7 +204,7 @@ contract DogCollectible is
             require(levelOf[ids[i]] == Level.Standard, "Not standard");
         }
 
-        uint256 hpCost = hpController.calculateHP(3);
+        uint256 hpCost = hpController.calculateDiscountedHP(3);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
@@ -227,7 +230,7 @@ contract DogCollectible is
             require(levelOf[ids[i]] == Level.Rare, "Not rare");
         }
 
-        uint256 hpCost = hpController.calculateHP(5);
+        uint256 hpCost = hpController.calculateDiscountedHP(5);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
@@ -253,7 +256,7 @@ contract DogCollectible is
             require(levelOf[ids[i]] == Level.Epic, "Not epic");
         }
 
-        uint256 hpCost = hpController.calculateHP(3);
+        uint256 hpCost = hpController.calculateDiscountedHP(3);
         IERC20 hpToken = IERC20(hpController.hpToken());
         require(
             hpToken.transferFrom(msg.sender, address(this), hpCost),
