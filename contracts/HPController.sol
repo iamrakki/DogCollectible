@@ -14,8 +14,8 @@ contract HPController is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     
     IERC20 public immutable hpToken;
-    uint256 public baseHPCost = 8000;
-    uint256 public bulkDiscountRate = 10;
+    uint256 public baseHPCost = 8000 * 10**18; 
+    uint256 public bulkDiscountRate = 0;
 
     event HPDeducted(address indexed user, uint256 amount);
     event HPAdded(address indexed user, uint256 amount);
@@ -41,9 +41,12 @@ contract HPController is AccessControl {
     }
 
     function calculateDiscountedHP(uint256 quantity) public view returns (uint256) {
+        if (bulkDiscountRate == 0) {
+            return baseHPCost * quantity;
+        }
         uint256 discount = bulkDiscountRate;
         require(discount <= 100, "Invalid discount rate");
-        uint256 totalCost = baseHPCost * quantity * (100 - discount) / 100;
+        uint256 totalCost = (baseHPCost * quantity * (100 - discount)) / 100;
         return totalCost;
     }
 
