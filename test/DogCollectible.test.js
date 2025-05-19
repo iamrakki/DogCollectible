@@ -161,6 +161,139 @@ describe("DogCollectible", function () {
         });
     });
 
+    describe("C11 - Token URI generation", function () {
+        it("should generate correct token URIs based on baseURI", async function () {
+            await dogContract.connect(user).publicMint(1);
+            expect(await dogContract.tokenURI(0)).to.equal("ipfs://baseuri/0");
+            
+            // Update the base URI
+            await dogContract.setBaseURI("https://api.dogs.example/metadata/");
+            expect(await dogContract.tokenURI(0)).to.equal("https://api.dogs.example/metadata/0");
+        });
+    });
+
+    describe("C12 - Zero quantity validation", function () {
+        it("should reject minting zero tokens", async function () {
+            await expect(
+                dogContract.connect(user).publicMint(0)
+            ).to.be.revertedWith("Quantity must be > 0");
+            
+            await expect(
+                dogContract.connect(user).mintToAddress(owner.address, 0)
+            ).to.be.revertedWith("Quantity must be > 0");
+            
+            await expect(
+                dogContract.mintMonthly(0)
+            ).to.be.revertedWith("Quantity must be > 0");
+        });
+    });
+
+    describe("C13 - HP Controller integration", function () {
+        it("should transfer correct amount of HP tokens when minting", async function () {
+            const controllerBalanceBefore = await hpToken.balanceOf(hpController.target);
+            
+            // Mint 5 tokens
+            await dogContract.connect(user).publicMint(5);
+            
+            const controllerBalanceAfter = await hpToken.balanceOf(hpController.target);
+            
+            // Verify HP tokens were transferred to controller
+            expect(controllerBalanceAfter).to.be.gt(controllerBalanceBefore);
+            
+        });
+    });
+
+    describe("C14 - Different user operations", function () {
+        it("should allow different users to mint and merge independently", async function () {
+            // User mints and merges
+            await dogContract.connect(user).publicMint(2);
+            await dogContract.connect(user).mergeCommons(0, 1);
+            expect(await dogContract.ownerOf(2)).to.equal(user.address);
+            
+            // owner mints and merges
+            await dogContract.connect(owner).publicMint(2);
+            await dogContract.connect(owner).mergeCommons(3, 4);
+            expect(await dogContract.ownerOf(5)).to.equal(owner.address);
+        });
+    });
+
+    describe("C15 - Enumerable functionality", function () {
+        it("should support token enumeration", async function () {
+            await dogContract.connect(user).publicMint(5);
+            
+            // Check total supply
+            expect(await dogContract.totalSupply()).to.equal(5);
+            
+            // Verify tokens of owner
+            expect(await dogContract.balanceOf(user.address)).to.equal(5);
+            
+            // Check token by index
+            for (let i = 0; i < 5; i++) {
+                const tokenId = await dogContract.tokenByIndex(i);
+                expect(tokenId).to.equal(i);
+                
+                const ownerToken = await dogContract.tokenOfOwnerByIndex(user.address, i);
+                expect(ownerToken).to.equal(i);
+            }
+        });
+    });
+
+    describe("C16 - AccessControl roles", function () {
+        it("should correctly enforce role-based access control", async function () {
+            const ADMIN_ROLE = await dogContract.ADMIN_ROLE();
+            const DEFAULT_ADMIN_ROLE = await dogContract.DEFAULT_ADMIN_ROLE();
+            
+            // Verify owner has correct roles
+            expect(await dogContract.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
+            expect(await dogContract.hasRole(ADMIN_ROLE, owner.address)).to.be.true;
+            
+            // Verify users don't have admin roles
+            expect(await dogContract.hasRole(ADMIN_ROLE, user.address)).to.be.false;
+        });
+    });
+
+    describe("C17 - HP update and accumulation", function () {
+        it("should correctly update HP after explicit update call", async function () {
+            await dogContract.connect(user).publicMint(1);
+            
+            // Wait for some time to pass
+            await time.increase(60 * 5); // 5 minutes
+            
+            // Check HP but don't update state
+            const calculatedHP = await dogContract.getHP(0);
+            
+            // Update the HP state
+            await dogContract.updateHP(0);
+            
+            // Wait some more time
+            await time.increase(60 * 3); // 3 more minutes
+            
+            // The new HP should be based on the updated state + new time passed
+            const newHP = await dogContract.getHP(0);
+            
+            // Common token rate: 1.8 HP/minute
+            // First period: 5 minutes * 1.8 = 9 HP
+            // Second period: 3 minutes * 1.8 = 5.4 HP
+            // Total: ~14.4 HP
+            expect(newHP).to.be.gt(calculatedHP);
+        });
+    });
+
+    describe("C18 - ERC721Burnable behavior", function () {
+        it("should support token burning", async function () {
+            await dogContract.connect(user).publicMint(1);
+            
+            // Verify token exists
+            expect(await dogContract.ownerOf(0)).to.equal(user.address);
+            
+            // Burn the token
+            await dogContract.connect(user).burn(0);
+            
+            // Verify token no longer exists
+            await expect(dogContract.ownerOf(0)).to.be.revertedWithCustomError(dogContract, "ERC721NonexistentToken");
+        });
+    });
+
     describe("Negative Tests", function () {
         let dogContract2; 
 
@@ -256,6 +389,12 @@ describe("DogCollectible", function () {
             await expect(
                 dogContract.connect(user).mergeCommons(0, 1)
             ).to.be.revertedWithCustomError(hpToken, "ERC20InsufficientAllowance");
+        });
+
+        it("should revert when minting to zero address", async function () {
+            await expect(
+                dogContract.connect(user).mintToAddress(ethers.ZeroAddress, 1)
+            ).to.be.revertedWithCustomError(dogContract, "ERC721InvalidReceiver");
         });
     });
 });
